@@ -1,182 +1,248 @@
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.*;
+import java.util.concurrent.*;
 
-public class Server extends Thread {
-
-    public void run() {
-        // SERVER
-
-        int port = 12345; // Porta su cui il server ascolterà
-
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Server TCP avviato sulla porta " + port);
-
+public class Server extends Thread{
+    private static final int PORT = 12345;
+    public static final String CSV_FILE = "ps2023minmax.csv";
+    private static final List<String[]> tideData = new ArrayList<>();
+    
+    public static void main(String[] args) {
+        loadTideData();
+        
+        ExecutorService executor = Executors.newCachedThreadPool();
+        
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            System.out.println("Server avviato sulla porta " + PORT);
+            
             while (true) {
-                try (Socket clientSocket = serverSocket.accept()) {
-                    System.out.println("Connessione accettata da " + clientSocket.getInetAddress());
-
-                    // Invia una risposta al client
-                    try (OutputStream out = clientSocket.getOutputStream()) {
-                        PrintWriter writer = new PrintWriter(out, true);
-                        writer.println("Inserire data per controllare la marea: ");
-                        writer.println("Formato: YYYY-MM-DD");
-                        writer.println("Esempio: 2023-01-01 14:05:00");
-                        writer.println("Per terminare il programma digitare 'exit'");
-                        writer.flush();
-                        BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                        String requestedDate = in.readLine(); // Legge la data inviata dal client
-                        if (requestedDate != null && !requestedDate.equalsIgnoreCase("exit")) {
-                            readFile(requestedDate); // Passa la data al metodo readFile
-                        }
-                        // Leggi la risposta del client
-                        BufferedReader input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                        String inputLine;
-                        while ((inputLine = in.readLine()) != null) {
-                            if (inputLine.equalsIgnoreCase("exit")) {
-                                System.out.println("Chiusura del server.");
-                                break;
-                            }
-                            // elaborare l'input del client
-                            System.out.println("Ricevuto dal client: " + inputLine);
-                            // risposta al client
-                            writer.println("Hai inserito: " + inputLine);
-                        }
-                        // Chiudi il flusso di output
-                        writer.close();
-                        // Chiudi il flusso di input
-                        in.close();
-                        // Chiudi il socket del client
-                        clientSocket.close();
-                        System.out.println("Connessione chiusa con " + clientSocket.getInetAddress());
-                    } catch (IOException ex) {
-                        System.err.println("Errore nella lettura/scrittura con il client: " + ex.getMessage());
-                    } finally {
-                        // Chiudi il socket del client
-                        if (!clientSocket.isClosed()) {
-                            clientSocket.close();
-                        }
-                        System.out.println("Socket del client chiuso.");
-                    }
-
-                } catch (IOException ex) {
-                    System.err.println("Errore nella connessione con il client: " + ex.getMessage());
-                }
-            }
-        } catch (IOException ex) {
-        }
-
-    }
-
-    private void readFile(String requestedDate) {
-        String filePath = "ps2023minmax.csv";
-        double minTide = Double.MAX_VALUE;
-        double maxTide = Double.MIN_VALUE;
-        String minTideTime = "";
-        String maxTideTime = "";
-        boolean dateFound = false;
-    
-        System.out.println("File: " + filePath);
-        File file = new File(filePath);
-        if (!file.exists()) {
-            System.err.println("Il file non esiste.");
-            return;
-        } else {
-            System.out.println("Il file esiste.");
-        }
-    
-        try {
-            // Rimuove spazi indesiderati da requestedDate
-            requestedDate = requestedDate.trim();
-            System.out.println("Requested date: '" + requestedDate + "'");
-    
-            // Verifica il formato della data
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            sdf.setLenient(false);
-            try {
-                sdf.parse(requestedDate); // Controlla che la data sia valida
-            } catch (Exception e) {
-                System.err.println("Formato data non valido: " + requestedDate);
-                return;
-            }
-    
-            // Lettura del file
-            try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-                String line;
-                int lineNumber = 0; // Contatore per le righe
-    
-                while ((line = br.readLine()) != null) {
-                    lineNumber++;
-    
-                    // Salta le prime due righe
-                    if (lineNumber <= 2) {
-                        continue;
-                    }
-    
-                    // Ignora righe vuote
-                    if (line.trim().isEmpty()) {
-                        continue;
-                    }
-    
-                    String[] values = line.split(",");
-                    if (values.length < 2 || values[0].trim().isEmpty() || values[1].trim().isEmpty()) {
-                        System.err.println("Riga malformata o incompleta alla riga " + lineNumber + ": " + line);
-                        continue;
-                    }
-    
-                    String dateTime = values[0].trim(); // Prima colonna: data e orario
-                    SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    dateTimeFormat.setLenient(false);
-    
-                    try {
-                        Date parsedDate = dateTimeFormat.parse(dateTime); // Parsing della data e orario
-                        String datePart = new SimpleDateFormat("yyyy-MM-dd").format(parsedDate); // Estrai solo la data
-                        String timePart = new SimpleDateFormat("HH:mm:ss").format(parsedDate); // Estrai solo l'orario
-    
-                        // Confronta la data letta con la requestedDate
-                        if (datePart.equals(requestedDate)) {
-                            dateFound = true;
-    
-                            // Parsing del valore della marea (seconda colonna)
-                            try {
-                                double tide = Double.parseDouble(values[1].trim());
-                                if (tide < minTide) {
-                                    minTide = tide;
-                                    minTideTime = timePart;
-                                }
-                                if (tide > maxTide) {
-                                    maxTide = tide;
-                                    maxTideTime = timePart;
-                                }
-                            } catch (NumberFormatException e) {
-                                System.err.println("Valore di marea non valido alla riga " + lineNumber + ": " + values[1]);
-                            }
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Formato data e orario non valido alla riga " + lineNumber + ": " + dateTime);
-                    }
-                }
-    
-                // Risultati finali
-                if (dateFound) {
-                    System.out.println("Data: " + requestedDate);
-                    System.out.println("Marea minima: " + minTide + " alle " + minTideTime);
-                    System.out.println("Marea massima: " + maxTide + " alle " + maxTideTime);
-                } else {
-                    System.out.println("Nessun dato trovato per la data: " + requestedDate);
-                }
+                Socket clientSocket = serverSocket.accept();
+                executor.execute(new ClientHandler(clientSocket));
             }
         } catch (IOException e) {
-            System.err.println("Errore durante la lettura del file: " + e.getMessage());
+            System.err.println("Errore nel server: " + e.getMessage());
+        } finally {
+            executor.shutdown();
         }
+    }
+    
+    private static void loadTideData() {
+        tideData.clear(); // Pulisce la lista prima di caricare nuovi dati
+        
+        try (BufferedReader br = new BufferedReader(new FileReader(CSV_FILE))) {
+            String line;
+            int lineNumber = 0;
+            String location = "";
+    
+            while ((line = br.readLine()) != null) {
+                lineNumber++;
+                
+                // Gestione righe speciali
+                if (lineNumber == 1) {
+                    location = line.split(",")[0];
+                    continue;
+                }
+                if (lineNumber == 2) continue; // Salta l'intestazione delle colonne
+                
+                if (line.trim().isEmpty()) continue;
+                
+                String[] values = line.split(",");
+                if (values.length >= 3) {
+                    // Crea un array più grande per includere la località
+                    String[] record = new String[4];
+                    System.arraycopy(values, 0, record, 0, 3);
+                    record[3] = location; // Aggiunge la località
+                    tideData.add(record);
+                }
+            }
+            System.out.println("Dati caricati: " + tideData.size() + " record");
+        } catch (IOException e) {
+            System.err.println("Errore caricamento file: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+    
+    private static class ClientHandler implements Runnable {
+        private final Socket clientSocket;
+        
+        public ClientHandler(Socket socket) {
+            this.clientSocket = socket;
+        }
+        
+        @Override
+        public void run() {
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(clientSocket.getInputStream()));
+                 PrintWriter out = new PrintWriter(
+                    clientSocket.getOutputStream(), true)) {
+                
+                out.println("SERVER_TIDE_READY"); // Notifica che il server è pronto
+                
+                String inputLine;
+                while ((inputLine = in.readLine()) != null) {
+                    if (inputLine.equalsIgnoreCase("EXIT")) {
+                        break;
+                    }
+                    
+                    String response = processRequest(inputLine);
+                    out.println(response);
+                }
+            } catch (IOException e) {
+                System.err.println("Errore nella comunicazione con il client: " + e.getMessage());
+            } finally {
+                try {
+                    clientSocket.close();
+                } catch (IOException e) {
+                    System.err.println("Errore nella chiusura del socket: " + e.getMessage());
+                }
+            }
+        }
+        
+        private String processRequest(String request) {
+            String[] parts = request.split(" ", 2);
+            String command = parts[0].toUpperCase();
+            
+            try {
+                switch (command) {
+                    case "GET_ROW":
+                        if (parts.length < 2) return "ERROR: Specificare numero riga";
+                        int row = Integer.parseInt(parts[1]);
+                        if (row < 0 || row >= tideData.size()) {
+                            return "ERROR: Riga deve essere tra 0 e " + (tideData.size() - 1);
+                        }
+                        return formatRecord(tideData.get(row));
+
+                    case "GET_DATE":
+                        if (parts.length < 2) return "ERROR: Specificare data (YYYY-MM-DD)";
+                        return getByDate(parts[1]);
+
+                    default:
+                        return "ERROR: Comando non valido";
+                }
+            } catch (NumberFormatException e) {
+                return "ERROR: Numero di riga non valido";
+            } catch (Exception e) {
+                return "ERROR: " + e.getMessage();
+            }
+        }
+        
+        private String getRowData(int row) {
+            if (row < 0 || row >= tideData.size()) {
+                return "ERROR: Numero di riga non valido (0-" + (tideData.size()-1) + ")";
+            }
+            return Arrays.toString(tideData.get(row));
+        }
+        
+        private String getDateData(String date) {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            sdf.setLenient(false);
+            
+            try {
+                sdf.parse(date); // Verifica che la data sia valida
+            } catch (Exception e) {
+                return "ERROR: Formato data non valido (usare YYYY-MM-DD)";
+            }
+            
+            StringBuilder result = new StringBuilder();
+            for (String[] row : tideData) {
+                if (row.length > 0 && row[0].startsWith(date)) {
+                    result.append(Arrays.toString(row)).append("\n");
+                }
+            }
+            
+            return result.length() > 0 ? result.toString() : "Nessun dato trovato per la data " + date;
+        }
+        
+        private String getDateStats(String date) {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            sdf.setLenient(false);
+            
+            try {
+                sdf.parse(date);
+            } catch (Exception e) {
+                return "ERROR: Formato data non valido (usare YYYY-MM-DD)";
+            }
+            
+            List<Double> minTides = new ArrayList<>();
+            List<Double> maxTides = new ArrayList<>();
+            
+            for (String[] row : tideData) {
+                if (row.length >= 3 && row[0].startsWith(date)) {
+                    try {
+                        double value = Double.parseDouble(row[2]);
+                        if (row[1].equalsIgnoreCase("min")) {
+                            minTides.add(value);
+                        } else if (row[1].equalsIgnoreCase("max")) {
+                            maxTides.add(value);
+                        }
+                    } catch (NumberFormatException e) {
+                        // Ignora valori non numerici
+                    }
+                }
+            }
+            
+            if (minTides.isEmpty() && maxTides.isEmpty()) {
+                return "Nessun dato trovato per la data " + date;
+            }
+            
+            StringBuilder stats = new StringBuilder();
+            stats.append("Statistiche per la data ").append(date).append(":\n");
+            
+            if (!minTides.isEmpty()) {
+                double min = Collections.min(minTides);
+                double max = Collections.max(minTides);
+                double avg = minTides.stream().mapToDouble(d -> d).average().orElse(0);
+                stats.append("Maree minime: ").append(minTides.size()).append(" rilevazioni\n");
+                stats.append("  Minimo: ").append(min).append(" m\n");
+                stats.append("  Massimo: ").append(max).append(" m\n");
+                stats.append("  Media: ").append(String.format("%.2f", avg)).append(" m\n");
+            }
+            
+            if (!maxTides.isEmpty()) {
+                double min = Collections.min(maxTides);
+                double max = Collections.max(maxTides);
+                double avg = maxTides.stream().mapToDouble(d -> d).average().orElse(0);
+                stats.append("Maree massime: ").append(maxTides.size()).append(" rilevazioni\n");
+                stats.append("  Minimo: ").append(min).append(" m\n");
+                stats.append("  Massimo: ").append(max).append(" m\n");
+                stats.append("  Media: ").append(String.format("%.2f", avg)).append(" m\n");
+            }
+            
+            return stats.toString();
+        }
+        
+        private String getAllData() {
+            StringBuilder result = new StringBuilder();
+            for (String[] row : tideData) {
+                result.append(Arrays.toString(row)).append("\n");
+            }
+            return result.toString();
+        }
+        private String formatRecord(String[] record) {
+            try {
+                return String.format("%s | %-4s | %6.2f m | %s",
+                    record[0], // timestamp
+                    record[1].toUpperCase(), // tipo
+                    Double.parseDouble(record[2]), // valore
+                    record[3] // località
+                );
+            } catch (Exception e) {
+                return "ERROR: Formattazione fallita";
+            }
+        }
+        
+        private String getByDate(String date) {
+            StringBuilder result = new StringBuilder();
+            for (String[] record : tideData) {
+                if (record[0].startsWith(date)) {
+                    result.append(formatRecord(record)).append("\n");
+                }
+            }
+            return result.length() > 0 ? result.toString() : "Nessun dato per " + date;
+        }
+        
     }
 }
