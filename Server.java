@@ -1,12 +1,13 @@
 
 import java.io.*;
+import static java.lang.System.out;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 
 public class Server extends Thread{
-    private static final int PORT = 12345;
+    private static final int PORT = 4578;
     public static final String CSV_FILE = "ps2023minmax.csv";
     private static final List<String[]> tideData = new ArrayList<>();
     
@@ -119,7 +120,12 @@ public class Server extends Thread{
                         if (parts.length < 2) return "ERROR: Specificare data (YYYY-MM-DD)";
                         return getByDate(parts[1]);
 
-                    default:
+                   
+                   case "GET_ALL":
+                     return getAll();
+
+                   
+                        default:
                         return "ERROR: Comando non valido";
                 }
             } catch (NumberFormatException e) {
@@ -214,12 +220,18 @@ public class Server extends Thread{
             return stats.toString();
         }
         
-        private String getAllData() {
-            StringBuilder result = new StringBuilder();
-            for (String[] row : tideData) {
-                result.append(Arrays.toString(row)).append("\n");
+        private String getAll() {
+            String line = "";
+            if (tideData == null || tideData.isEmpty()) {
+                return "Nessun dato disponibile.";
             }
-            return result.toString();
+        
+            out.println("=== TUTTI I DATI ===");
+            for (String[] row : tideData) {
+               line += String.join(", ", row) + "\n"; // Concatena i valori della riga con una virgola
+            }
+            out.println("=== FINE DATI ===");
+            return line;
         }
         private String formatRecord(String[] record) {
             try {

@@ -25,11 +25,6 @@ Usiamo un protocollo TCP con porta 12345
 
   Supporta il comando EXIT per terminare la connesione.
 
- - StartTideServer:
-
- Avvia il server in un thread separato.
-
- Permette di chiudere il server premendo INVIO.
 
 
 GESTIONE DEGLI ERRORI: Errori di connessione: Se il server non è raggiungibile, il client mostra un messaggio di errore.
