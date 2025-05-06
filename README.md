@@ -1,8 +1,9 @@
-Progetto: App per la marea nell'anno 2023 dell'area di Punta Salute nel Canal Grande a Venenzia
+# Progetto per la marea nell'anno 2023 dell'area di Punta Salute nel Canal Grande a Venenzia
 
-Scopo: Creare un server Java utilizzando i Socket che permetta di leggere dati da un file csv
+## Scopo: 
+Creare un server Java utilizzando i Socket che permetta di leggere dati da un file csv
 
-Report: 
+## Report: 
 
 Usiamo un protocollo TCP con porta 12345
 
@@ -27,21 +28,24 @@ Usiamo un protocollo TCP con porta 12345
 
 
 
-GESTIONE DEGLI ERRORI: Errori di connessione: Se il server non è raggiungibile, il client mostra un messaggio di errore.
+## GESTIONE DEGLI ERRORI: 
+Errori di connessione: Se il server non è raggiungibile, il client mostra un messaggio di errore.
 
-Errori nei comandi: Se un comando è malformato, il server risponde con ERROR: "descrizione".
+### Errori nei comandi: 
+Se un comando è malformato, il server risponde con ERROR: "descrizione".
 
-Timeout: Non gestiti esplicitamente, ma il client può riconnettersi manualmente.
+### Timeout: 
+Non gestiti esplicitamente, ma il client può riconnettersi manualmente.
  
 
 
-SCELTE PROGETTUALI:
-Server multithread: Ogni client viene gestito in un thread separato (ClientHandler), permettendo connessioni multiple.
+## SCELTE PROGETTUALI:
+- Server multithread: Ogni client viene gestito in un thread separato (ClientHandler), permettendo connessioni multiple.
 
-Client sincrono: Il client attende una risposta prima di inviare un nuovo comando (modello richiesta-risposta).
+- Client sincrono: Il client attende una risposta prima di inviare un nuovo comando (modello richiesta-risposta).
 
-Gestione dei Dati
-Caricamento in memoria: I dati del CSV (ps2023minmax.csv) vengono caricati all'avvio in una List<String[]>.
+## GESTIONE DEI DATI:
+- Caricamento in memoria: I dati del CSV (ps2023minmax.csv) vengono caricati all'avvio in una List<String[]>.
 
 
   
