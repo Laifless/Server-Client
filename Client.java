@@ -3,67 +3,63 @@ import java.net.*;
 import java.util.Scanner;
 
 public class Client {
-    private static final int TIMEOUT = 1000000000; 
-    private static volatile boolean exit = false; // Variabile condivisa per controllare l'uscita
-
+   
+    private static final int TIMEOUT = 10000000; // 10 secondi
+    
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         System.out.println("=== CLIENT MARE VENEZIA ===");
-
-        try (Socket socket = new Socket()) {
+        do{try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress("localhost", 4578), TIMEOUT);
             socket.setSoTimeout(TIMEOUT);
-
-            try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-
+            
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream()));
+                 PrintWriter out = new PrintWriter(
+                    socket.getOutputStream(), true)) {
+                
                 System.out.println("Connesso al server. " + in.readLine());
-
-                // Thread per leggere le risposte dal server
-                Thread readerThread = new Thread(() -> {
-                    try {
-                        String response;
-                        while (!exit && (response = in.readLine()) != null) {
-                            System.out.println("\n=== RISPOSTA DAL SERVER ===");
-                            System.out.println(response);
-                        }
-                    } catch (IOException e) {
-                        if (!exit) {
-                            System.err.println("Errore durante la lettura dal server: " + e.getMessage());
-                        }
-                    }
-                });
-
-                readerThread.start(); // Avvia il thread per la lettura
-
-                // Ciclo principale per inviare comandi
-                while (!exit) {
+                
+                while (true) {
                     printMenu();
                     System.out.print("> ");
                     String input = scanner.nextLine().trim();
-
-                    out.println(input); // Invia il comando al server
-                    if (input.equalsIgnoreCase("EXIT")) {
-                        exit = true; // Segnala l'uscita
-                        break;
+                    
+                    out.println(input);
+                    if (input.equalsIgnoreCase("EXIT")) break;
+                    
+                    System.out.println("\n=== RISULTATI ===");
+                    String response;
+                    while ((response = in.readLine()) != null) {
+                        if (response.equals("END_OF_TRANSMISSION")) break;
+                        System.out.println(response);
                     }
+                    System.out.println("=================\n");
                 }
-
-                // Aspetta che il thread di lettura termini
-                readerThread.join();
             }
-        } catch (IOException | InterruptedException e) {
-            System.err.println("Errore: " + e.getMessage());
+        } catch (SocketTimeoutException e) {
+            System.err.println("Timeout: server non risponde");
+        } catch (ConnectException e) {
+            System.err.println("Connessione rifiutata. Verifica che il server sia avviato.");
+        } catch (UnknownHostException e) {
+            System.err.println("Server non trovato");
+        } catch (IOException e) {
+            System.err.println("Errore di I/O: " + e.getMessage());
         } finally {
-            System.out.println("Client terminato.");
+            scanner.close();
+            System.out.println("Client terminato");
         }
+        }while(true);
     }
-
+    
+    
     private static void printMenu() {
-        System.out.println("\n=== MENU ===");
-        System.out.println("1. GET_ROW <n>");
-        System.out.println("2. GET_DATE <date>");
-        System.out.println("3. GET_ALL      -non consigliato");
-        System.out.println("3. EXIT");
-    }
+        System.out.println("\nComandi disponibili:");
+        System.out.println("GET_ROW <n>      - Visualizza la riga n del dataset");
+        System.out.println("GET_DATE <data>  - Visualizza dati per una data (YYYY-MM-DD)");
+        System.out.println("GET_STATS <data> - Statistiche per una data");
+        System.out.println("GET_INFO         - Informazioni sulla stazione di rilevamento");
+        System.out.println("GET_ALL          - Visualizza tutti i dati (usare con cautela)");
+        System.out.println("EXIT             - Termina la connessione");
+    } 
 }
