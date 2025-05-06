@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.Scanner;
 
 public class Client {
-    private static final int TIMEOUT = 10000; // 10 secondi
+    private static final int TIMEOUT = 1000000000; 
     private static volatile boolean exit = false; // Variabile condivisa per controllare l'uscita
 
     public static void main(String[] args) {
